@@ -1,0 +1,320 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+	<title></title>
+	<style type="text/css">	
+	*{margin:0;padding:0;}
+	body{color:#fff;}
+	.box_mask{width:500px;height:200px;position:relative;margin:50px auto;}
+	.box{position:absolute;width:2000px;height:200px;top:0;left:0;}
+	.box div{width:496px;height:196px;border:2px solid #ccc;float:left;}
+	.red{background:#c00;}
+	.blue{background:#069;}
+	.green{background:#390;}
+	.black{background:#000;}
+	</style>
+</head>
+<body>
+	<div class="box_mask">
+		<div class="box" id="box">
+			<div class="red">11111</div>
+			<div class="blue">22222</div>
+			<div class="green">33333</div>
+			<div class="black">44444</div>
+		</div>
+	</div>
+	<script type="text/javascript">
+		Y = {
+			 /**
+			 * 拓展
+			 * @param  {Object} 默认内容
+			 * @param  {Object} 拓展内容
+			 */
+			extend: function ( target, source ) {
+				for ( var property in source )
+					target[property] = source[property];
+				return target;
+			}
+		};
+		(function ( global, undefined ) {
+			var userAgent = global.navigator.userAgent,
+				doc = document,
+				getId = function ( id ) {
+					return doc.getElementById ( id );
+				};
+
+			/**
+			* 默认配置
+			*/
+			var defaultConfig = {
+				time: 1000,
+				ease: "easeOut",
+				tween: "Quart",
+				callback: function(){}
+			};
+			
+			/**
+			* 类
+			* @param {object}|string
+			*/
+			var CSS = function ( o ) {
+				this.init( o );
+			}
+			CSS.prototype = {
+				init: function ( o ) {
+					if ( isString ( o ) ) {
+						this.obj = getId ( o );
+					} else if ( isHTML ) {
+						this.obj = o;
+					} else {
+						return
+					}
+					return this;
+				},
+				animate: function ( config ) {
+					/**
+					* 动画队列声明
+					*/
+					if ( !this.animateQueue ) {
+						this.animateQueue = [];
+					}
+					
+					/**
+					* 动画参数初始化
+					*/
+					var i = 0, time, ease, tween, callback;
+					while ( arguments[++i] ) {
+						if ( typeof arguments[i] == "number" ) {
+							time = arguments[i];
+						} else if ( typeof arguments[i] == "string" ) {
+							if ( /^ease*/.test( arguments[i] ) ) {
+								ease = arguments[i];
+							} else {
+								tween = arguments[i];
+							}
+						} else if ( isFunction ( arguments[i] ) ) {
+							callback = arguments[i]
+						}
+					}
+					
+					/**
+					* 动画队列构建
+					*/
+					this.animateQueue.push ( {
+						config : config,
+						time : time ? time : defaultConfig.time,
+						ease : ease ? ease : defaultConfig.ease,
+						tween : tween ? tween : defaultConfig.tween,
+						callback : callback ? callback : defaultConfig.callback
+					} );
+					
+					if ( this.animateQueue.length == 1 ) {
+						this.execute ( this.animateQueue );
+					}
+					return this;
+				},
+				/**
+				* 动画执行
+				* @param [array] 动画队列数组
+				*/
+				execute: function ( queue ) {
+					var _animates = function ( el, name, from, to, time, ease, tween,callback ) {
+						var s = +new Date,
+							b = parseInt ( from ) || 0,
+							d = time,
+							c = to - b,
+							_name = name;
+						
+						/**
+						* 兼容IE
+						*/
+						if ( supportOpacity && name == "opacity" ) {
+							_name = "filter";
+							to = to * 100;
+						}
+						
+						(function () {
+							var t = +new Date - s;
+							if ( t >= d ) {
+								t = d;
+								el.style[_name] = ( name == "opacity" ? ( supportOpacity ? "alpha(opacity=" : "" ) : "" ) + Tween.linear ( b, c, d, t ) + ( name == "opacity" ? ( supportOpacity ? ")" : "" ) : "px" );
+								if ( !!callback ) {
+									callback.apply ( el );
+								}
+								
+								if ( queue.length > 1 ) {
+									queue.shift ();
+									_this.execute ( queue );
+								}
+								return
+							}
+							el.style[_name] = ( name == "opacity" ? ( supportOpacity ? "alpha(opacity=" : "" ) : "" ) + Tween[tween][ease] ( b, c, d, t ) + ( name == "opacity" ? ( supportOpacity ? ")" : "" ) : "px" );
+							setTimeout ( arguments.callee, 16 );
+						})();
+					}
+					var q = queue[0], _this = this, el = this.obj;
+					this.each ( el, function () {
+						for ( var name in q.config ) {
+							_animates ( el,
+										name,
+										name == "opacity" && supportOpacity ? _this.getCurrentStyle ( el, "filter" ) == "" ? 100 : parseInt ( _this.getCurrentStyle ( el, "filter" ).match ( /\d{1,3}/g )[0] ) : _this.getCurrentStyle ( el, name ),
+										q.config[name],
+										typeof q.time == "number" ? q.time : 1000,
+										typeof q.ease == "string" ? q.ease : "easeOut",
+										typeof q.tween == "string" && !/^ease*/.test ( q.tween ) ? q.tween : "Quart",
+										q.callback 
+							);
+						}
+					} );
+				},
+				each: function ( obj, fn ) {
+					if ( isArray ( obj ) ) {
+						for ( var i = 0, len = obj.length; i<len; i++ ) {
+							if ( fn.call ( obj[i], i ) === false )
+								break;
+						}
+					} else if ( isCollection ( obj ) ) {
+						for ( var property in obj ) {
+							if ( obj.hasOwnProperty ( property ) ) {
+								if ( fn.call ( obj[property], property ) === false ) 
+									break;
+							}
+						}
+					} else {
+						fn.call ( obj );
+					}
+				},
+				getCurrentStyle : function (el, prop) {
+					return el.currentStyle ? el.currentStyle[prop] : document.defaultView.getComputedStyle(el, null)[prop];
+				}
+			}
+			
+			var isFunction = function ( fn ) {
+				if ( !fn ) return false;
+				return Object.prototype.toString.call ( fn ) == "[object Function]";
+			}
+			var isArray = function ( arr ) {
+				if ( !arr ) return false;
+				return Object.prototype.toString.call ( arr ) == "[object Array]";
+			}
+			var isString = function ( str ) {
+				if ( !str ) return false;
+				return Object.prototype.toString.call ( str ) == "[object String]";
+			}
+			var isHTML = function ( html ) {
+				if ( !html ) return false;
+				var s = Object.prototype.toString.call ( html );
+				s = s.substr ( 1, 11 );
+				return s == "object HTML";
+			}
+			var isCollection = function ( elem ) {
+				return !elem.nodeType && typeof elem.item != "undefined" && !elem.alert || elem.callee;
+			}
+			var supportOpacity = (function () {
+				return userAgent.indexOf ( "MSIE" ) > 0 ?	true : false;
+			})();
+			/**
+			* 缓动类
+			*/
+			var Tween = {/*t运行时间,b开始值,c总变化值,d总时间*/
+				linear : function ( b, c, d, t ) {
+					return t / d * c +b;
+				},
+				Quart : {
+					easeIn : function ( b, c, d, t ) {
+						return c * ( t /= d ) * t * t * t + b;
+					},
+					easeOut : function ( b, c, d, t ) {
+						return -c * ( ( t = t / d - 1 ) * t * t * t - 1 ) + b;
+					},
+					easeInOut : function ( b, c, d, t ) {
+						if ( t <= d / 2 ) {
+							return  c * d / t * ( t /= d ) * t * t * t + b;
+						} else {
+							return -c * ( ( t = t / d - 1 ) * t * t * t - 1 ) + b;
+						}
+					}
+				}
+			}
+			
+			/**
+			*释放接口
+			*/
+			Y.extend( Y, {
+				$ : function ( id ) {
+					return new CSS ( id );
+				},
+				/**
+				* slide
+				*/
+				slide : function ( o ) {
+					var dom = document.getElementById(o.id),
+						div = dom.getElementsByTagName(o.el),
+						count = 0,
+						w = o.wid ? o.wid : div[0].offsetWidth,
+						name = o.name ? o.name : "left",
+						step = o.step ? o.step : 1000,
+						delay = o.delay ? o.delay : 3000,
+						slide = o.slide ? o.slide : true,
+						len = div.length,pDiv = div[0].parentNode;
+					pDiv.innerHTML += pDiv.innerHTML;
+					dom.style.width = div[0].offsetWidth * div.length + "px";
+					
+					var auto = function () {
+						switch ( name ) {
+							case "left" :
+								Y.$(dom).animate({left: -count*w},step);
+								break;
+							case "top" :
+								Y.$(dom).animate({top: -count*w},step);
+								break;
+						}
+						setTimeout ( function () {
+							count++;
+							if ( slide ) {
+								if ( count > len ) {
+									count = 1;dom.style.left = 0;
+								}
+							} else {
+								if ( count >= len ) {
+									count = 0;
+								}
+							}
+							setTimeout( auto, delay-100 );
+						}, step+100 );
+						
+					};
+					auto();
+				}
+			} );
+		})(this);
+		
+		
+		/**
+		* 测试
+		*/
+		//Y.$("box").animate({left:500},3000,"easeIn").animate({top:300},3000).animate({left:-500,opacity:0},3000);
+		/**
+		*调用
+		* @param id
+		* @param id子元素标签
+		* @param 轮换的距离
+		* @param 方向
+		* @param 轮换时间
+		* @param 延迟
+		* @param true连续，false回滚
+		
+		Y.slide ({
+			id: "box",
+			el: "div",
+			wid: 500,
+			name: "left",
+			step: 3000,
+			delay: 1000,
+			slide: false
+		});*/
+		Y.slide ({id: "box", el: "div"});
+	</script>
+</body>
+</html>
